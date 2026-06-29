@@ -6,11 +6,21 @@ interface Message {
   content: string;
   sender: 'me' | 'them';
   timestamp: number;
+  // UX FIX: état d'envoi pour indicateur visuel
+  status?: 'sending' | 'sent' | 'error';
 }
 
 interface NewMessagePayload {
   peer_id: string;
   content: string;
+}
+
+// UX FIX: formater timestamp en HH:MM
+function formatTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function ChatWindow({ peerId, onClose }: { peerId: string; onClose: () => void }) {
@@ -20,26 +30,25 @@ function ChatWindow({ peerId, onClose }: { peerId: string; onClose: () => void }
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // BUG FIX: unlisten était appelé sans await sur la Promise.
-  // La cleanup doit gérer le cas où la Promise n'est pas encore résolue.
+  // BUG FIX: unlisten géré correctement (cancel flag)
   useEffect(() => {
     let unlistenFn: (() => void) | undefined;
     let cancelled = false;
 
-    listen<NewMessagePayload>('new-message', (event) => {
+    listen<NewMessagePayload>('new-message', event => {
       if (event.payload.peer_id === peerId) {
-        setMessages((prev) => [
+        setMessages(prev => [
           ...prev,
           {
             content: event.payload.content,
             sender: 'them',
             timestamp: Date.now(),
+            status: 'sent',
           },
         ]);
       }
-    }).then((fn) => {
+    }).then(fn => {
       if (cancelled) {
-        // Composant déjà démonté — unlisten immédiatement
         fn();
       } else {
         unlistenFn = fn;
@@ -52,47 +61,58 @@ function ChatWindow({ peerId, onClose }: { peerId: string; onClose: () => void }
     };
   }, [peerId]);
 
-  // BUG FIX: scroll après rendu, pas pendant (useLayoutEffect serait idéal
-  // mais useEffect avec flush synchrone est suffisant ici)
+  // BUG FIX: scroll après rendu via requestAnimationFrame
   useEffect(() => {
     const el = scrollRef.current;
     if (el) {
-      // requestAnimationFrame garantit que le DOM est peint avant scroll
       requestAnimationFrame(() => {
         el.scrollTop = el.scrollHeight;
       });
     }
   }, [messages]);
 
-  // Focus auto sur l'input à l'ouverture
+  // Focus auto à l'ouverture
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
   const send = useCallback(async () => {
     const trimmed = input.trim();
-    // UX FIX: rien à envoyer ou déjà en cours
     if (!trimmed || sending) return;
 
+    const ts = Date.now();
+    const tempMsg: Message = {
+      content: trimmed,
+      sender: 'me',
+      timestamp: ts,
+      status: 'sending',
+    };
+
+    // UX FIX: message optimiste immédiat
+    setMessages(prev => [...prev, tempMsg]);
+    setInput('');
     setSending(true);
+
     try {
       await invoke('send_message', { peerId, content: trimmed });
-      setMessages((prev) => [
-        ...prev,
-        { content: trimmed, sender: 'me', timestamp: Date.now() },
-      ]);
-      setInput('');
+      // Marquer le message comme envoyé
+      setMessages(prev =>
+        prev.map(m =>
+          m.timestamp === ts && m.sender === 'me'
+            ? { ...m, status: 'sent' }
+            : m
+        )
+      );
     } catch (e) {
       console.error('Failed to send message', e);
-      // UX FIX: feedback d'erreur inline plutôt que silencieux
-      setMessages((prev) => [
-        ...prev,
-        {
-          content: '⚠️ Échec d\'envoi. Connexion P2P perdue ?',
-          sender: 'me',
-          timestamp: Date.now(),
-        },
-      ]);
+      // UX FIX: marquer comme erreur (pas supprimer)
+      setMessages(prev =>
+        prev.map(m =>
+          m.timestamp === ts && m.sender === 'me'
+            ? { ...m, status: 'error', content: m.content + ' ⚠️' }
+            : m
+        )
+      );
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -101,7 +121,6 @@ function ChatWindow({ peerId, onClose }: { peerId: string; onClose: () => void }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      // BUG FIX: preventDefault évite tout comportement form natif résiduel
       e.preventDefault();
       send();
     }
@@ -126,26 +145,44 @@ function ChatWindow({ peerId, onClose }: { peerId: string; onClose: () => void }
             🔒 {peerId.slice(0, 8)}…
           </div>
         </div>
-        <div className="chat-e2ee-badge" title="Chiffrement Double Ratchet bout-en-bout">
+        <div className="chat-e2ee-badge" title="Chiffrement bout-en-bout">
           🔐 E2EE
         </div>
       </header>
 
-      <div className="chat-messages" ref={scrollRef} aria-live="polite" aria-label="Messages">
+      <div
+        className="chat-messages"
+        ref={scrollRef}
+        aria-live="polite"
+        aria-label="Messages"
+      >
         {messages.length === 0 ? (
           <div className="chat-empty">
             <span aria-hidden="true">💬</span>
             <p>Aucun message pour l'instant.</p>
-            <p className="chat-ephemeral-note">Cette conversation sera effacée à la fermeture.</p>
+            <p className="chat-ephemeral-note">
+              Cette conversation sera effacée à la fermeture.
+            </p>
           </div>
         ) : (
           messages.map((m, i) => (
             <div
               key={i}
-              className={`msg ${m.sender}`}
+              className={`msg ${m.sender}${m.status === 'error' ? ' msg-error' : ''}`}
               aria-label={m.sender === 'me' ? 'Moi' : 'Eux'}
             >
-              {m.content}
+              <span className="msg-content">{m.content}</span>
+              {/* UX FIX: timestamp + indicateur d'envoi */}
+              <span className="msg-meta">
+                {formatTime(m.timestamp)}
+                {m.sender === 'me' && (
+                  <span className="msg-status" aria-hidden="true">
+                    {m.status === 'sending' && ' ⏳'}
+                    {m.status === 'sent' && ' ✓'}
+                    {m.status === 'error' && ' ✗'}
+                  </span>
+                )}
+              </span>
             </div>
           ))
         )}
@@ -156,14 +193,13 @@ function ChatWindow({ peerId, onClose }: { peerId: string; onClose: () => void }
           ref={inputRef}
           className="chat-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Message…"
           aria-label="Écrire un message"
           disabled={sending}
           maxLength={2000}
         />
-        {/* UX FIX: disabled quand rien à envoyer */}
         <button
           className="send-btn"
           onClick={send}

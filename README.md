@@ -1,37 +1,30 @@
 # 🌸 LotusDate
 
-**100% Decentralized Dating App – Zero Servers, Zero Third Parties, Just the Network**
+**100% Decentralized P2P Dating App – No Servers, No Third Parties**
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Build APK](https://github.com/<user>/LotusDate/actions/workflows/build-apk.yml/badge.svg)](https://github.com/<user>/LotusDate/actions/workflows/build-apk.yml)
-[![Rust](https://img.shields.io/badge/Rust-1.80+-orange)](https://www.rust-lang.org)
-[![Tauri v2](https://img.shields.io/badge/Tauri-2.0-9cf)](https://tauri.app)
+LotusDate transforme ton smartphone en nœud d’un réseau peer-to-peer mondial auto-organisé.
 
-LotusDate transforms your smartphone into a node of a global, self‑organizing peer‑to‑peer network.  
-**No servers, no cloud, no accounts, no third‑party services.**  
-Your data stays on your device, matches happen directly, and conversations disappear forever when you close them.
+## ✨ Fonctionnalités
 
----
+- 🔐 **Vie privée totale** : Identité Ed25519 locale, zéro compte, zéro email/téléphone.
+- 💬 **Chat éphémère** : Double Ratchet E2EE, messages en RAM uniquement (effacés à la fermeture).
+- ⚡ **Ultra-rapide** : Préconnexions WebRTC (<300ms), profils en cache DHT.
+- 🔋 **Économie batterie** : Nœud complet seulement si batterie >30% (sinon client léger).
+- 🌐 **Online/Offline** : Internet + Wi-Fi Direct.
+- 🧠 **DHT Kademlia** : Profils et likes distribués via geohash.
 
-## ✨ Why LotusDate?
+## 🚀 Installation
 
-- 🔐 **True privacy** – no email, no phone number, no central database. Your identity is an Ed25519 keypair generated on your device.
-- 💬 **Ephemeral chat** – every message is end‑to‑end encrypted (Double Ratchet) and stored **only in RAM**. Closing the chat permanently erases all traces.
-- ⚡ **Blazing fast** – pre‑cached profiles and pre‑established WebRTC connections deliver swipe‑to‑chat in **under 300 ms**.
-- 🔋 **Battery‑aware networking** – your phone acts as a full node only when battery > 30% (or while charging). Otherwise it runs as a lightweight client.
-- 🌐 **Online & offline** – works over the Internet (4G/5G/Wi‑Fi) or locally via Wi‑Fi Direct when no connection is available.
-- 🧠 **Collective database** – profiles and pending likes are stored in a Kademlia DHT maintained by the community. No central index, no single point of failure.
+1. Clone : `git clone https://github.com/Connacri/LotusDate.git`
+2. `cd LotusDate && npm install`
+3. `npm run tauri dev` (desktop) ou `npm run tauri android build` (APK).
 
----
+## 🛠️ Tech Stack
 
-## 🧭 How It Works
+- **Frontend** : TypeScript + Vite + React
+- **Backend** : Rust + rust-libp2p + libsodium
+- **Desktop/Mobile** : Tauri v2
 
-```mermaid
-graph TD
-    A[You] <-->|Kademlia DHT| B[Profiles nearby]
-    A -- Like --> C[Recipient's mailbox]
-    C -- Match --> D[WebRTC channel]
-    D -- Double Ratchet --> E[Ephemeral Chat]
-    F[Community nodes] -->|Store & relay| C
-    G[Battery > 30% ?] -->|Yes| F
-    G -->|No| H[Light client]
+## 📜 License
+
+CC0-1.0 – Domaine public.

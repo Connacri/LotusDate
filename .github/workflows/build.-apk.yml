@@ -104,7 +104,7 @@ jobs:
 
       # ── 9. Build APK release ──────────────────────────────────
       - name: 🔨 Build Tauri Android APK
-        run: npm run tauri android build -- --apk --release
+        run: npm run tauri android build -- --apk
 
       # ── 10. Signer l'APK ─────────────────────────────────────
       - name: ✍️ Sign APK

@@ -10,6 +10,7 @@ interface Props {
 export default function ChatWindow({ peerId, onClose }: Props) {
   const [messages, setMessages] = useState<string[]>([]);
   const [input, setInput] = useState('');
+  const [isConfirmingClose, setIsConfirmingClose] = useState(false);
 
   useEffect(() => {
     const unlisten = listen<string>('new-message', (event) => {
@@ -27,21 +28,45 @@ export default function ChatWindow({ peerId, onClose }: Props) {
     setInput('');
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      send();
+    }
+  };
+
   const handleClose = async () => {
-    await invoke('close_chat', { peerId });
-    onClose();
+    if (isConfirmingClose) {
+      await invoke('close_chat', { peerId });
+      onClose();
+    } else {
+      setIsConfirmingClose(true);
+      // Reset confirmation after 3 seconds
+      setTimeout(() => setIsConfirmingClose(false), 3000);
+    }
   };
 
   return (
     <div className="chat-window">
-      <div className="messages">
+      <div className="messages" role="log" aria-live="polite">
         {messages.map((m, i) => <p key={i}>{m}</p>)}
       </div>
       <div className="input-bar">
-        <input value={input} onChange={e => setInput(e.target.value)} />
-        <button onClick={send}>Envoyer</button>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Écrivez un message..."
+          aria-label="Message à envoyer"
+        />
+        <button onClick={send} aria-label="Envoyer le message">Envoyer</button>
       </div>
-      <button onClick={handleClose}>Fermer (détruire le chat)</button>
+      <button
+        onClick={handleClose}
+        className={isConfirmingClose ? 'confirming' : ''}
+        aria-label={isConfirmingClose ? "Confirmer la destruction du chat" : "Fermer et détruire le chat"}
+      >
+        {isConfirmingClose ? 'Êtes-vous sûr ? (Destruction définitive)' : 'Fermer (détruire le chat)'}
+      </button>
     </div>
   );
 }

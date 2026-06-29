@@ -1,0 +1,82 @@
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f5f5f5;
+}
+
+.app {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.battery {
+  padding: 8px;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 16px;
+  font-weight: bold;
+}
+
+.battery.node {
+  background: #c8e6c9;
+  color: #2e7d32;
+}
+
+.battery.client {
+  background: #ffcdd2;
+  color: #c62828;
+}
+
+.profile-card {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.profile-card button {
+  margin-top: 8px;
+  padding: 8px 16px;
+  border: none;
+  background: #e91e63;
+  color: white;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.chat-window {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-window .messages {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  border: 1px solid #eee;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.input-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.input-bar input {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+button {
+  cursor: pointer;
+}

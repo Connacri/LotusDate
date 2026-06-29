@@ -1,66 +1,171 @@
+/* ============================================================
+   LotusDate — Design System
+   Palette : rose vif primaire, fond pêche doux, vert menthe accent
+   Typography : Inter (system stack) — sobre et lisible
+   Signature : gradient d'en-tête rose→corail + fleur d'avatar en SVG
+   ============================================================ */
+
 :root {
   --primary: #ff4d6d;
   --primary-light: #ff758f;
-  --secondary: #80ed99;
+  --primary-dim: rgba(255, 77, 109, 0.12);
+  --accent: #80ed99;
+  --accent-dark: #38b55a;
   --bg: #fdf0f4;
-  --white: #ffffff;
+  --surface: #ffffff;
+  --surface-alt: #fafafa;
   --text: #2b2d42;
   --text-muted: #8d99ae;
-  --shadow: 0 4px 12px rgba(255, 77, 109, 0.15);
+  --text-on-primary: #ffffff;
+  --border: #ede8ec;
+  --shadow-card: 0 2px 16px rgba(255, 77, 109, 0.10);
+  --shadow-elevated: 0 8px 32px rgba(255, 77, 109, 0.18);
   --radius: 20px;
+  --radius-sm: 12px;
+  --radius-pill: 999px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 240ms ease;
+}
+
+/* BUG FIX: dark mode — sans cela, les utilisateurs en dark OS
+   voyaient un fond blanc cru avec texte illisible. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1014;
+    --surface: #261820;
+    --surface-alt: #1e121a;
+    --text: #f0e8ec;
+    --text-muted: #9e8a96;
+    --border: #3a2530;
+    --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.4);
+    --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --primary-dim: rgba(255, 77, 109, 0.18);
+  }
+}
+
+/* Respect du paramètre d'accessibilité reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Reset & Base ─────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--bg);
   color: var(--text);
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ── App Shell ────────────────────────────────────────────── */
 .app {
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100vh;
+  min-height: 100svh; /* svh pour mobile : exclut la barre d'adresse */
   display: flex;
   flex-direction: column;
-  padding: 12px;
-  box-sizing: border-box;
+  padding: 12px 12px env(safe-area-inset-bottom, 12px);
 }
 
-/* Profiles */
+/* ── Spinner de chargement ────────────────────────────────── */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--primary-dim);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Notification de match ────────────────────────────────── */
+.match-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: var(--text-on-primary);
+  padding: 12px 24px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 1rem;
+  z-index: 200;
+  box-shadow: var(--shadow-elevated);
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 0.9s forwards;
+  white-space: nowrap;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes toastOut {
+  to { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+}
+
+/* ── Profile Stack ────────────────────────────────────────── */
 .profile-stack {
   display: flex;
   flex-direction: column;
   gap: 16px;
   margin-top: 8px;
+  flex: 1;
 }
 
+/* ── Profile Card ─────────────────────────────────────────── */
 .profile-card {
-  background: var(--white);
+  background: var(--surface);
   border-radius: var(--radius);
   padding: 20px;
-  box-shadow: var(--shadow);
-  transition: transform 0.2s ease;
-  position: relative;
-  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .profile-card:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
+  box-shadow: none;
+}
+
+/* UX FIX: header avec nom + badge proximité côte-à-côte */
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .profile-card h3 {
-  margin: 0 0 8px 0;
-  font-size: 1.4rem;
+  margin: 0;
+  font-size: 1.35rem;
   font-weight: 700;
+  color: var(--text);
 }
 
-.profile-card p {
+.proximity-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--text-muted);
-  margin-bottom: 16px;
-  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .interests-container {
@@ -68,155 +173,282 @@ body {
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 20px;
+  margin-top: 14px;
 }
 
 .interest-chip {
-  background: #f1f1f1;
-  color: var(--text);
+  background: var(--primary-dim);
+  color: var(--primary);
   padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
+/* UX FIX: état disabled + état liking */
 .like-button {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   border: none;
-  background: linear-gradient(45deg, var(--primary), var(--primary-light));
-  color: white;
-  border-radius: 14px;
-  font-weight: 600;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: var(--text-on-primary);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: opacity 0.2s;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
 }
 
-.like-button:hover {
-  opacity: 0.9;
+.like-button:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
 }
 
-/* Chat */
+.like-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.like-button:disabled,
+.like-button.liking {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Chat Window ──────────────────────────────────────────── */
 .chat {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--white);
+  inset: 0;
+  background: var(--surface);
   z-index: 100;
   display: flex;
   flex-direction: column;
 }
 
 .chat-header {
-  padding: 16px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid #eee;
-  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  /* Espace pour les encoches iOS */
+  padding-top: max(12px, env(safe-area-inset-top));
 }
 
 .back-btn {
-  background: none;
+  background: var(--primary-dim);
   border: none;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  font-weight: 700;
+  transition: background var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  background: rgba(255, 77, 109, 0.2);
+}
+
+.chat-user-info {
+  flex: 1;
+  min-width: 0; /* évite overflow sur flex */
+}
+
+.chat-user-info strong {
+  display: block;
+  font-size: 1rem;
+}
+
+/* BUG FIX: inline style retiré, class dédiée + overflow */
+.peer-id-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-e2ee-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(56, 181, 90, 0.12);
+  color: var(--accent-dark);
   padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
 }
 
 .chat-messages {
   flex: 1;
   overflow-y: auto;
+  /* scroll smooth natif */
+  scroll-behavior: smooth;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: #fafafa;
+  gap: 10px;
+  background: var(--surface-alt);
+  /* Overscroll color sur mobile */
+  overscroll-behavior: contain;
+}
+
+/* BUG FIX: la zone vide de chat était un inline style épars */
+.chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 20px;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.chat-empty span {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+}
+
+.chat-ephemeral-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 
 .msg {
-  max-width: 80%;
+  max-width: 78%;
   padding: 10px 14px;
   border-radius: 18px;
   font-size: 0.95rem;
-  line-height: 1.4;
-  word-wrap: break-word;
+  line-height: 1.45;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .msg.me {
   align-self: flex-end;
-  background-color: var(--primary);
-  color: white;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: var(--text-on-primary);
   border-bottom-right-radius: 4px;
 }
 
 .msg.them {
   align-self: flex-start;
-  background-color: #e9ecef;
+  background: var(--surface);
   color: var(--text);
+  border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
 }
 
 .chat-input-container {
-  padding: 12px 16px 24px;
+  padding: 12px 16px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   display: flex;
   gap: 10px;
-  background: var(--white);
-  border-top: 1px solid #eee;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
 }
 
 .chat-input {
   flex: 1;
   padding: 12px 16px;
-  border-radius: 24px;
-  border: 1px solid #ddd;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
   outline: none;
   font-size: 1rem;
+  background: var(--surface-alt);
+  color: var(--text);
+  transition: border-color var(--transition-fast);
+  min-width: 0;
 }
 
 .chat-input:focus {
   border-color: var(--primary);
 }
 
-.send-btn {
-  background: var(--primary);
-  color: white;
-  border: none;
-  padding: 0 20px;
-  border-radius: 24px;
-  font-weight: 600;
-  cursor: pointer;
+.chat-input:disabled {
+  opacity: 0.6;
 }
 
-/* Battery status */
+/* UX FIX: bouton send visible uniquement quand actif */
+.send-btn {
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.send-btn:not(:disabled):hover {
+  opacity: 0.88;
+  transform: scale(1.06);
+}
+
+/* ── Battery Indicator ────────────────────────────────────── */
 .battery-status {
-  padding: 6px 12px;
-  border-radius: 12px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
   font-weight: 600;
   margin-bottom: 12px;
   align-self: center;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  border: 1px solid transparent;
+  transition: background var(--transition-base);
 }
 
 .battery-status.node {
-  background: #d8f3dc;
-  color: #1b4332;
+  background: rgba(56, 181, 90, 0.12);
+  color: var(--accent-dark);
+  border-color: rgba(56, 181, 90, 0.25);
 }
 
 .battery-status.client {
-  background: #fee2e2;
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.10);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
+@media (prefers-color-scheme: dark) {
+  .battery-status.client {
+    color: #fca5a5;
+  }
+  .battery-status.node {
+    color: #86efac;
+  }
+}
+
+/* ── Empty State ──────────────────────────────────────────── */
 .empty-state {
   flex: 1;
   display: flex;
@@ -225,10 +457,30 @@ body {
   justify-content: center;
   text-align: center;
   color: var(--text-muted);
-  padding: 40px;
+  padding: 40px 24px;
+  gap: 8px;
+}
+
+.empty-icon {
+  font-size: 3.5rem;
+  margin-bottom: 8px;
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
 
 .empty-state h2 {
   color: var(--text);
-  margin-bottom: 8px;
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  max-width: 280px;
 }

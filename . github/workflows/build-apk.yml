@@ -1,0 +1,143 @@
+name: Build APK
+
+on:
+  push:
+    branches: [master]
+    paths-ignore: ['README.md', '.gitignore']
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Type de bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options: [patch, minor, major]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # ── 2. Versioning ─────────────────────────────────────────
+      - name: 🔢 Calcul de version
+        id: version
+        run: |
+          git fetch --tags
+
+          LAST_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [ -z "$LAST_TAG" ]; then
+            LAST_TAG="v0.0.0"
+          fi
+
+          VERSION_CORE="${LAST_TAG#v}"
+          MAJOR=$(echo "$VERSION_CORE" | cut -d. -f1)
+          MINOR=$(echo "$VERSION_CORE" | cut -d. -f2)
+          PATCH=$(echo "$VERSION_CORE" | cut -d. -f3)
+
+          BUMP="${{ github.event.inputs.version_bump }}"
+          if [ -z "$BUMP" ]; then
+            BUMP="patch"
+          fi
+
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR+1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH+1)) ;;
+          esac
+
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$NEW_VERSION"     >> "$GITHUB_ENV"
+          echo "Nouvelle version : $NEW_VERSION (bump=$BUMP depuis $LAST_TAG)"
+
+      # ── 3. Node.js ────────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # ── 4. Rust + cibles Android ──────────────────────────────
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      # ── 5. Cache Cargo ────────────────────────────────────────
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # ── 6. Android SDK + NDK ──────────────────────────────────
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 ndk;26.1.10909125 build-tools;34.0.0'
+
+      - name: Exporter ANDROID_NDK_HOME
+        run: |
+          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/26.* 2>/dev/null | head -n1)
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$NDK_PATH"         >> "$GITHUB_ENV"
+
+      # ── 7. Dépendances Node ───────────────────────────────────
+      - name: Install Node deps
+        run: npm ci
+
+      # ── 8. Tauri CLI (via cargo-binstall = rapide) ────────────
+      - name: Installer cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Installer tauri-cli
+        run: cargo binstall tauri-cli --version "^2.0" --no-confirm
+
+      # ── 9. Build APK release ──────────────────────────────────
+      - name: 🔨 Build Tauri Android APK
+        run: npm run tauri android build -- --apk --release
+
+      # ── 10. Signer l'APK ─────────────────────────────────────
+      - name: ✍️ Sign APK
+        id: sign
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/universal/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 11. Créer le tag Git ──────────────────────────────────
+      - name: 🏷️ Créer le tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ env.VERSION }}" -m "Release ${{ env.VERSION }}"
+          git push origin "${{ env.VERSION }}"
+
+      # ── 12. GitHub Release ────────────────────────────────────
+      - name: 🚀 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: LotusDate ${{ env.VERSION }}
+          body: |
+            ## LotusDate ${{ env.VERSION }}
+            Build Android automatique via GitHub Actions.
+            **Bump**: ${{ github.event.inputs.version_bump || 'patch' }}
+          files: |
+            src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+            ${{ steps.sign.outputs.signedReleaseFile }}
+          fail_on_unmatched_files: false

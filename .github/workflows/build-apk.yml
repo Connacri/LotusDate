@@ -1,0 +1,46 @@
+name: Build APK
+
+on:
+  workflow_dispatch:  # permet de lancer manuellement
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Installer Node.js et Yarn
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g yarn
+
+      # 2. Installer Rust
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      # 3. Installer Tauri CLI
+      - run: cargo install tauri-cli --version "^2.0"
+
+      # 4. Installer le SDK Android et le NDK
+      - uses: android-actions/setup-android@v3
+        with:
+          sdk-version: '33'
+          ndk-version: '25.2.9519653'
+          build-tools-version: '33.0.0'
+
+      # 5. Installer les dépendances JavaScript
+      - run: yarn install
+
+      # 6. Build APK release
+      - name: Build APK
+        run: yarn tauri android build
+
+      # 7. Uploader l’APK en artefact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proxidate-live.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/release/app-release.apk

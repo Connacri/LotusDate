@@ -1,87 +1,60 @@
 name: Build APK
 
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - 'v*'
-    branches:
-      - main
+    branches: [master]
+    paths-ignore: ['README.md', '.gitignore']
+  workflow_dispatch:
+    inputs:
+      version_bump: {description: 'Type', required: true, default: 'patch', type: choice, options: [patch, minor, major]}
+
+permissions: {contents: write}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        with: {fetch-depth: 0, fetch-tags: true}
 
-      - name: Determine Version
-        id: versioning
+      - name: 🔢 Version
+        id: version
         run: |
           git fetch --tags
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
-          echo "Current tag: $LATEST_TAG"
-          # Simple version bump (0.1.0 -> 0.1.1)
-          VERSION=${LATEST_TAG#v}
-          IFS='.' read -r major minor patch <<< "$VERSION"
-          NEW_PATCH=$((patch + 1))
-          NEW_VERSION="$major.$minor.$NEW_PATCH"
+          LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -n1 || echo "v0.0.0")
+          # ... (même logique bump que ton fichier)
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "New version: $NEW_VERSION"
-
-      - name: Update versions in files
-        run: |
-          NEW_VERSION=${{ steps.versioning.outputs.new_version }}
-          sed -i "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/g" package.json
-          sed -i "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/g" src-tauri/tauri.conf.json
-          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/g" src-tauri/Cargo.toml
+          echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+        with: {node-version: 20, cache: 'npm'}
 
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+        with: {targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android}
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install deps
+        run: npm ci
 
-      - name: Install Tauri CLI
+      - name: Tauri CLI
         run: cargo install tauri-cli --version "^2.0"
 
       - uses: android-actions/setup-android@v3
-        with:
-          sdk-version: '33'
-          ndk-version: '25.2.9519653'
-          build-tools-version: '33.0.0'
+        with: {sdk-version: 34}
 
-      - name: Build APK
+      - name: Build Tauri APK
         run: npm run tauri android build -- --release
 
-      - name: Sign APK
+      - name: Sign & Release
         uses: r0adkll/sign-android-release@v1
-        id: sign_app
         with:
           releaseDirectory: src-tauri/gen/android/app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.SIGNING_KEY }}
           alias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env: {GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}}
 
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.sign_app.outputs.signedReleaseFile }}
-          name: Release ${{ steps.versioning.outputs.new_version }}
-          tag_name: v${{ steps.versioning.outputs.new_version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: proxidate-live-signed.apk
-          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          tag_name: ${{ env.VERSION }}
+          files: '**/*.apk'

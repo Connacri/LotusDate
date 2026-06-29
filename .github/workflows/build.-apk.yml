@@ -91,22 +91,32 @@ jobs:
           echo "ANDROID_NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
           echo "NDK_HOME=$NDK_PATH"         >> "$GITHUB_ENV"
 
-      # ── 7. Dépendances Node ───────────────────────────────────
+      # ── 7. Java 17 (requis par Gradle Android) ───────────────
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # ── 8. Dépendances Node ───────────────────────────────────
       - name: Install Node deps
         run: npm ci
 
-      # ── 8. Tauri CLI (via cargo-binstall = rapide) ────────────
+      # ── 9. Tauri CLI (via cargo-binstall = rapide) ────────────
       - name: Installer cargo-binstall
         uses: cargo-bins/cargo-binstall@main
 
       - name: Installer tauri-cli
         run: cargo binstall tauri-cli --version "^2.0" --no-confirm
 
-      # ── 9. Build APK release ──────────────────────────────────
+      # ── 10. Init projet Android (génère src-tauri/gen/android) ─
+      - name: 📱 Tauri Android Init
+        run: npm run tauri android init
+
+      # ── 11. Build APK ─────────────────────────────────────────
       - name: 🔨 Build Tauri Android APK
         run: npm run tauri android build -- --apk
 
-      # ── 10. Signer l'APK ─────────────────────────────────────
+      # ── 12. Signer l'APK ─────────────────────────────────────
       - name: ✍️ Sign APK
         id: sign
         uses: r0adkll/sign-android-release@v1
@@ -119,7 +129,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 11. Créer le tag Git ──────────────────────────────────
+      # ── 13. Créer le tag Git ──────────────────────────────────
       - name: 🏷️ Créer le tag
         run: |
           git config user.name  "github-actions[bot]"
@@ -127,7 +137,7 @@ jobs:
           git tag "${{ env.VERSION }}" -m "Release ${{ env.VERSION }}"
           git push origin "${{ env.VERSION }}"
 
-      # ── 12. GitHub Release ────────────────────────────────────
+      # ── 14. GitHub Release ────────────────────────────────────
       - name: 🚀 GitHub Release
         uses: softprops/action-gh-release@v2
         with:

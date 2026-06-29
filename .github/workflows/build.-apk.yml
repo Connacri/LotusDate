@@ -108,6 +108,15 @@ jobs:
       - name: Installer tauri-cli
         run: cargo binstall tauri-cli --version "^2.0" --no-confirm
 
+      # ── Créer lib.rs s'il n'existe pas ───────────────────────
+      - name: 🦀 Vérifier lib.rs
+        run: |
+          if [ ! -f "src-tauri/src/lib.rs" ]; then
+            echo "lib.rs manquant, copie depuis main.rs..."
+            cp src-tauri/src/main.rs src-tauri/src/lib.rs
+          fi
+          ls -la src-tauri/src/
+
       # ── 10. Init projet Android (génère src-tauri/gen/android) ─
       - name: 📱 Tauri Android Init
         run: npm run tauri android init

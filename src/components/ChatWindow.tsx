@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 interface Message {
   content: string;
   sender: 'me' | 'them';
+  timestamp: number;
 }
 
 interface NewMessagePayload {
@@ -15,69 +16,163 @@ interface NewMessagePayload {
 function ChatWindow({ peerId, onClose }: { peerId: string; onClose: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // BUG FIX: unlisten était appelé sans await sur la Promise.
+  // La cleanup doit gérer le cas où la Promise n'est pas encore résolue.
   useEffect(() => {
-    const unlisten = listen<NewMessagePayload>('new-message', (event) => {
+    let unlistenFn: (() => void) | undefined;
+    let cancelled = false;
+
+    listen<NewMessagePayload>('new-message', (event) => {
       if (event.payload.peer_id === peerId) {
-        setMessages((prev) => [...prev, { content: event.payload.content, sender: 'them' }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            content: event.payload.content,
+            sender: 'them',
+            timestamp: Date.now(),
+          },
+        ]);
+      }
+    }).then((fn) => {
+      if (cancelled) {
+        // Composant déjà démonté — unlisten immédiatement
+        fn();
+      } else {
+        unlistenFn = fn;
       }
     });
 
     return () => {
-      unlisten.then((f) => f());
+      cancelled = true;
+      unlistenFn?.();
     };
   }, [peerId]);
 
+  // BUG FIX: scroll après rendu, pas pendant (useLayoutEffect serait idéal
+  // mais useEffect avec flush synchrone est suffisant ici)
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (el) {
+      // requestAnimationFrame garantit que le DOM est peint avant scroll
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
     }
   }, [messages]);
 
-  const send = async () => {
-    if (!input.trim()) return;
+  // Focus auto sur l'input à l'ouverture
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const send = useCallback(async () => {
+    const trimmed = input.trim();
+    // UX FIX: rien à envoyer ou déjà en cours
+    if (!trimmed || sending) return;
+
+    setSending(true);
     try {
-      await invoke('send_message', { peerId, content: input });
-      setMessages((prev) => [...prev, { content: input, sender: 'me' }]);
+      await invoke('send_message', { peerId, content: trimmed });
+      setMessages((prev) => [
+        ...prev,
+        { content: trimmed, sender: 'me', timestamp: Date.now() },
+      ]);
       setInput('');
     } catch (e) {
-      console.error("Failed to send message", e);
+      console.error('Failed to send message', e);
+      // UX FIX: feedback d'erreur inline plutôt que silencieux
+      setMessages((prev) => [
+        ...prev,
+        {
+          content: '⚠️ Échec d\'envoi. Connexion P2P perdue ?',
+          sender: 'me',
+          timestamp: Date.now(),
+        },
+      ]);
+    } finally {
+      setSending(false);
+      inputRef.current?.focus();
+    }
+  }, [input, peerId, sending]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      // BUG FIX: preventDefault évite tout comportement form natif résiduel
+      e.preventDefault();
+      send();
     }
   };
 
+  const canSend = input.trim().length > 0 && !sending;
+
   return (
-    <div className="chat">
+    <div className="chat" role="main" aria-label="Conversation éphémère">
       <header className="chat-header">
-        <button className="back-btn" onClick={onClose}>←</button>
+        <button
+          className="back-btn"
+          onClick={onClose}
+          aria-label="Retour aux profils"
+          title="Fermer et effacer le chat"
+        >
+          ←
+        </button>
         <div className="chat-user-info">
           <strong>Chat éphémère</strong>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{peerId.slice(0, 8)}...</div>
+          <div className="peer-id-label" title={peerId}>
+            🔒 {peerId.slice(0, 8)}…
+          </div>
+        </div>
+        <div className="chat-e2ee-badge" title="Chiffrement Double Ratchet bout-en-bout">
+          🔐 E2EE
         </div>
       </header>
 
-      <div className="chat-messages" ref={scrollRef}>
-        {messages.map((m, i) => (
-          <div key={i} className={`msg ${m.sender}`}>
-            {m.content}
+      <div className="chat-messages" ref={scrollRef} aria-live="polite" aria-label="Messages">
+        {messages.length === 0 ? (
+          <div className="chat-empty">
+            <span aria-hidden="true">💬</span>
+            <p>Aucun message pour l'instant.</p>
+            <p className="chat-ephemeral-note">Cette conversation sera effacée à la fermeture.</p>
           </div>
-        ))}
-        {messages.length === 0 && (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '20px' }}>
-            Aucun message. La conversation sera effacée à la fermeture.
-          </div>
+        ) : (
+          messages.map((m, i) => (
+            <div
+              key={i}
+              className={`msg ${m.sender}`}
+              aria-label={m.sender === 'me' ? 'Moi' : 'Eux'}
+            >
+              {m.content}
+            </div>
+          ))
         )}
       </div>
 
       <div className="chat-input-container">
         <input
+          ref={inputRef}
           className="chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="Message..."
+          onKeyDown={handleKeyDown}
+          placeholder="Message…"
+          aria-label="Écrire un message"
+          disabled={sending}
+          maxLength={2000}
         />
-        <button className="send-btn" onClick={send}>Envoyer</button>
+        {/* UX FIX: disabled quand rien à envoyer */}
+        <button
+          className="send-btn"
+          onClick={send}
+          disabled={!canSend}
+          aria-label="Envoyer"
+          aria-busy={sending}
+        >
+          {sending ? '…' : '↑'}
+        </button>
       </div>
     </div>
   );

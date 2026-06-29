@@ -11,13 +11,20 @@ use battery::BatteryMonitor;
 use p2p::P2pNetwork;
 use profile::UserProfile;
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tokio::sync::Mutex;
+use serde::Serialize;
 
 struct AppState {
     network: Arc<Mutex<P2pNetwork>>,
     profile: Arc<Mutex<UserProfile>>,
     battery: Arc<Mutex<BatteryMonitor>>,
+}
+
+#[derive(Clone, Serialize)]
+struct NewMessagePayload {
+    peer_id: String,
+    content: String,
 }
 
 #[tokio::main]
@@ -58,9 +65,9 @@ mod commands {
     }
 
     #[tauri::command]
-    async fn send_like(state: State<'_, AppState>, peer_id: String) -> Result<bool, String> {
-        let network = state.network.lock().await;
-        network.send_like(&peer_id).await.map_err(|e| e.to_string())
+    async fn send_like(state: State<'_, AppState>, _peer_id: String) -> Result<bool, String> {
+        let mut network = state.network.lock().await;
+        network.send_like(&_peer_id).await.map_err(|e| e.to_string())
     }
 
     #[tauri::command]
@@ -70,9 +77,18 @@ mod commands {
     }
 
     #[tauri::command]
-    async fn send_message(state: State<'_, AppState>, peer_id: String, message: String) -> Result<(), String> {
+    async fn send_message(app: tauri::AppHandle, state: State<'_, AppState>, peer_id: String, message: String) -> Result<(), String> {
         let mut network = state.network.lock().await;
-        network.send_chat_message(&peer_id, &message).await.map_err(|e| e.to_string())
+        network.send_chat_message(&peer_id, &message).await.map_err(|e| e.to_string())?;
+
+        // Mocking an auto-reply for demo purposes
+        let reply_msg = format!("Écho: {}", message);
+        app.emit("new-message", NewMessagePayload {
+            peer_id: peer_id.clone(),
+            content: reply_msg,
+        }).map_err(|e| e.to_string())?;
+
+        Ok(())
     }
 
     #[tauri::command]

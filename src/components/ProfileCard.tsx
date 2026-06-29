@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface ProfileCardProps {
   profile: {
     peer_id: string;
@@ -9,12 +11,25 @@ interface ProfileCardProps {
   onLike: () => void;
 }
 
-export default function ProfileCard({ profile, onLike }: ProfileCardProps) {
+const ProfileCard: React.FC<ProfileCardProps> = ({ profile, onLike }) => {
   return (
     <div className="profile-card">
       <h3>{profile.pseudonym}, {profile.age}</h3>
-      <p>{profile.interests.join(", ")}</p>
-      <button onClick={onLike}>❤️ Like</button>
+      <p>À proximité • {profile.geohash}</p>
+
+      <div className="interests-container">
+        {profile.interests.map((interest, index) => (
+          <span key={index} className="interest-chip">
+            {interest}
+          </span>
+        ))}
+      </div>
+
+      <button className="like-button" onClick={onLike}>
+        <span>❤️</span> Like
+      </button>
     </div>
   );
-}
+};
+
+export default React.memo(ProfileCard);

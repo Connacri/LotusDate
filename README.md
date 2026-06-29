@@ -1,30 +1,31 @@
 # 🌸 LotusDate
 
-**100% Decentralized P2P Dating App – No Servers, No Third Parties**
+**Application de rencontre P2P 100% décentralisée**  
+*zéro serveur, zéro tiers, juste le réseau*
 
-LotusDate transforme ton smartphone en nœud d’un réseau peer-to-peer mondial auto-organisé.
+Ton téléphone devient un nœud dans un réseau mondial auto-organisé.
 
-## ✨ Fonctionnalités
+## ✨ Pourquoi LotusDate ?
 
-- 🔐 **Vie privée totale** : Identité Ed25519 locale, zéro compte, zéro email/téléphone.
-- 💬 **Chat éphémère** : Double Ratchet E2EE, messages en RAM uniquement (effacés à la fermeture).
-- ⚡ **Ultra-rapide** : Préconnexions WebRTC (<300ms), profils en cache DHT.
-- 🔋 **Économie batterie** : Nœud complet seulement si batterie >30% (sinon client léger).
-- 🌐 **Online/Offline** : Internet + Wi-Fi Direct.
-- 🧠 **DHT Kademlia** : Profils et likes distribués via geohash.
+- 🔐 **Confidentialité absolue** — Clé Ed25519 locale, aucun compte ni donnée centrale
+- 💬 **Chats éphémères** — Double Ratchet E2EE, stockés uniquement en RAM (effacés à la fermeture)
+- ⚡ **Instantané** — Swipe-to-chat en <300 ms grâce à WebRTC pré-connecté
+- 🔋 **Respect batterie** — Nœud actif seulement >30% (ou en charge)
+- 🌍 **Online & Offline** — Internet + Wi-Fi Direct
+- 🧠 **DHT collectif** — Profils et likes via Kademlia + geohash
 
-## 🚀 Installation
+## 🛠️ Stack Technique
 
-1. Clone : `git clone https://github.com/Connacri/LotusDate.git`
-2. `cd LotusDate && npm install`
-3. `npm run tauri dev` (desktop) ou `npm run tauri android build` (APK).
+- **Frontend** : TypeScript, Vite, React
+- **Backend** : Rust, rust-libp2p, libsodium
+- **Multiplateforme** : Tauri v2
 
-## 🛠️ Tech Stack
+## 🚀 Installation rapide
 
-- **Frontend** : TypeScript + Vite + React
-- **Backend** : Rust + rust-libp2p + libsodium
-- **Desktop/Mobile** : Tauri v2
-
-## 📜 License
-
-CC0-1.0 – Domaine public.
+```bash
+git clone https://github.com/Connacri/LotusDate.git
+cd LotusDate
+npm install
+npm run tauri dev          # Desktop
+# ou
+npm run tauri android build # APK

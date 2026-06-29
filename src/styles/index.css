@@ -1,8 +1,6 @@
 /* ============================================================
-   LotusDate — Design System
-   Palette : rose vif primaire, fond pêche doux, vert menthe accent
-   Typography : Inter (system stack) — sobre et lisible
-   Signature : gradient d'en-tête rose→corail + fleur d'avatar en SVG
+   LotusDate — Design System v2
+   Palette : rose vif primaire, fond pêche, vert menthe accent
    ============================================================ */
 
 :root {
@@ -23,14 +21,10 @@
   --radius: 20px;
   --radius-sm: 12px;
   --radius-pill: 999px;
-
-  /* Transitions */
   --transition-fast: 150ms ease;
   --transition-base: 240ms ease;
 }
 
-/* BUG FIX: dark mode — sans cela, les utilisateurs en dark OS
-   voyaient un fond blanc cru avec texte illisible. */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #1a1014;
@@ -45,7 +39,6 @@
   }
 }
 
-/* Respect du paramètre d'accessibilité reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -53,10 +46,7 @@
   }
 }
 
-/* ── Reset & Base ─────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -68,17 +58,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── App Shell ────────────────────────────────────────────── */
+/* ── App Shell ─────────────────────────────────────────────── */
 .app {
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100svh; /* svh pour mobile : exclut la barre d'adresse */
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
   padding: 12px 12px env(safe-area-inset-bottom, 12px);
 }
 
-/* ── Spinner de chargement ────────────────────────────────── */
+/* ── Spinner ────────────────────────────────────────────────── */
 .spinner {
   width: 40px;
   height: 40px;
@@ -88,12 +78,9 @@ body {
   animation: spin 0.8s linear infinite;
   margin: 0 auto 16px;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Notification de match ────────────────────────────────── */
+/* ── Match Toast ────────────────────────────────────────────── */
 .match-toast {
   position: fixed;
   top: 16px;
@@ -107,20 +94,44 @@ body {
   font-size: 1rem;
   z-index: 200;
   box-shadow: var(--shadow-elevated);
-  animation: toastIn 0.3s ease, toastOut 0.3s ease 0.9s forwards;
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 1.1s forwards;
   white-space: nowrap;
 }
-
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
-
 @keyframes toastOut {
   to { opacity: 0; transform: translateX(-50%) translateY(-12px); }
 }
 
-/* ── Profile Stack ────────────────────────────────────────── */
+/* UX FIX: bannière d'erreur réseau */
+.error-banner {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 600;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(185,28,28,0.12);
+  white-space: nowrap;
+  animation: toastIn 0.25s ease;
+}
+@media (prefers-color-scheme: dark) {
+  .error-banner {
+    background: #3b1a1a;
+    color: #fca5a5;
+    border-color: #7f1d1d;
+  }
+}
+
+/* ── Profile Stack ─────────────────────────────────────────── */
 .profile-stack {
   display: flex;
   flex-direction: column;
@@ -129,7 +140,7 @@ body {
   flex: 1;
 }
 
-/* ── Profile Card ─────────────────────────────────────────── */
+/* ── Profile Card ──────────────────────────────────────────── */
 .profile-card {
   background: var(--surface);
   border-radius: var(--radius);
@@ -138,13 +149,11 @@ body {
   border: 1px solid var(--border);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
-
 .profile-card:active {
   transform: scale(0.985);
   box-shadow: none;
 }
 
-/* UX FIX: header avec nom + badge proximité côte-à-côte */
 .profile-header {
   display: flex;
   justify-content: space-between;
@@ -172,8 +181,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 20px;
-  margin-top: 14px;
+  margin: 14px 0 20px;
 }
 
 .interest-chip {
@@ -185,7 +193,6 @@ body {
   font-weight: 600;
 }
 
-/* UX FIX: état disabled + état liking */
 .like-button {
   width: 100%;
   padding: 14px;
@@ -203,24 +210,11 @@ body {
   transition: opacity var(--transition-fast), transform var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
 }
+.like-button:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.like-button:active:not(:disabled) { transform: scale(0.97); }
+.like-button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
-.like-button:hover:not(:disabled) {
-  opacity: 0.88;
-  transform: translateY(-1px);
-}
-
-.like-button:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-.like-button:disabled,
-.like-button.liking {
-  opacity: 0.55;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* ── Chat Window ──────────────────────────────────────────── */
+/* ── Chat Window ───────────────────────────────────────────── */
 .chat {
   position: fixed;
   inset: 0;
@@ -231,14 +225,12 @@ body {
 }
 
 .chat-header {
-  padding: 12px 16px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  /* Espace pour les encoches iOS */
-  padding-top: max(12px, env(safe-area-inset-top));
 }
 
 .back-btn {
@@ -254,22 +246,14 @@ body {
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
 }
-
-.back-btn:hover {
-  background: rgba(255, 77, 109, 0.2);
-}
+.back-btn:hover { background: rgba(255, 77, 109, 0.2); }
 
 .chat-user-info {
   flex: 1;
-  min-width: 0; /* évite overflow sur flex */
+  min-width: 0;
 }
+.chat-user-info strong { display: block; font-size: 1rem; }
 
-.chat-user-info strong {
-  display: block;
-  font-size: 1rem;
-}
-
-/* BUG FIX: inline style retiré, class dédiée + overflow */
 .peer-id-label {
   font-size: 0.7rem;
   color: var(--text-muted);
@@ -291,18 +275,15 @@ body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  /* scroll smooth natif */
   scroll-behavior: smooth;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   background: var(--surface-alt);
-  /* Overscroll color sur mobile */
   overscroll-behavior: contain;
 }
 
-/* BUG FIX: la zone vide de chat était un inline style épars */
 .chat-empty {
   flex: 1;
   display: flex;
@@ -315,27 +296,31 @@ body {
   gap: 6px;
   font-size: 0.9rem;
 }
+.chat-empty span { font-size: 2.5rem; margin-bottom: 8px; }
+.chat-ephemeral-note { font-size: 0.75rem; margin-top: 4px; }
 
-.chat-empty span {
-  font-size: 2.5rem;
-  margin-bottom: 8px;
-}
-
-.chat-ephemeral-note {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
+/* UX FIX: structure message avec meta (timestamp + statut) */
 .msg {
   max-width: 78%;
-  padding: 10px 14px;
+  padding: 10px 14px 6px;
   border-radius: 18px;
   font-size: 0.95rem;
   line-height: 1.45;
   word-break: break-word;
   overflow-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
+.msg-content { flex: 1; }
+.msg-meta {
+  font-size: 0.65rem;
+  opacity: 0.65;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.msg-status { font-size: 0.7rem; }
 
 .msg.me {
   align-self: flex-end;
@@ -343,6 +328,7 @@ body {
   color: var(--text-on-primary);
   border-bottom-right-radius: 4px;
 }
+.msg.me .msg-meta { align-self: flex-end; }
 
 .msg.them {
   align-self: flex-start;
@@ -352,9 +338,14 @@ body {
   border-bottom-left-radius: 4px;
 }
 
+/* UX FIX: message en erreur */
+.msg.msg-error {
+  opacity: 0.75;
+  border: 1px dashed rgba(239, 68, 68, 0.5);
+}
+
 .chat-input-container {
-  padding: 12px 16px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
   display: flex;
   gap: 10px;
   background: var(--surface);
@@ -373,16 +364,9 @@ body {
   transition: border-color var(--transition-fast);
   min-width: 0;
 }
+.chat-input:focus { border-color: var(--primary); }
+.chat-input:disabled { opacity: 0.6; }
 
-.chat-input:focus {
-  border-color: var(--primary);
-}
-
-.chat-input:disabled {
-  opacity: 0.6;
-}
-
-/* UX FIX: bouton send visible uniquement quand actif */
 .send-btn {
   background: var(--primary);
   color: var(--text-on-primary);
@@ -400,19 +384,10 @@ body {
   transition: opacity var(--transition-fast), transform var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
 }
+.send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.send-btn:not(:disabled):hover { opacity: 0.88; transform: scale(1.06); }
 
-.send-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.send-btn:not(:disabled):hover {
-  opacity: 0.88;
-  transform: scale(1.06);
-}
-
-/* ── Battery Indicator ────────────────────────────────────── */
+/* ── Battery Indicator ─────────────────────────────────────── */
 .battery-status {
   padding: 6px 14px;
   border-radius: var(--radius-pill);
@@ -426,29 +401,22 @@ body {
   border: 1px solid transparent;
   transition: background var(--transition-base);
 }
-
 .battery-status.node {
   background: rgba(56, 181, 90, 0.12);
   color: var(--accent-dark);
   border-color: rgba(56, 181, 90, 0.25);
 }
-
 .battery-status.client {
   background: rgba(239, 68, 68, 0.10);
   color: #b91c1c;
   border-color: rgba(239, 68, 68, 0.2);
 }
-
 @media (prefers-color-scheme: dark) {
-  .battery-status.client {
-    color: #fca5a5;
-  }
-  .battery-status.node {
-    color: #86efac;
-  }
+  .battery-status.client { color: #fca5a5; }
+  .battery-status.node   { color: #86efac; }
 }
 
-/* ── Empty State ──────────────────────────────────────────── */
+/* ── Empty State ───────────────────────────────────────────── */
 .empty-state {
   flex: 1;
   display: flex;
@@ -460,24 +428,20 @@ body {
   padding: 40px 24px;
   gap: 8px;
 }
-
 .empty-icon {
   font-size: 3.5rem;
   margin-bottom: 8px;
   animation: breathe 3s ease-in-out infinite;
 }
-
 @keyframes breathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
 }
-
 .empty-state h2 {
   color: var(--text);
   margin: 0 0 4px;
   font-size: 1.25rem;
 }
-
 .empty-state p {
   margin: 0;
   font-size: 0.9rem;

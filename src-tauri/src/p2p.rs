@@ -203,7 +203,7 @@ fn derive_session_secret(peer_a: &str, peer_b: &str) -> [u8; 32] {
 pub async fn start_network(
     profile: &UserProfile,
     event_tx: mpsc::UnboundedSender<SwarmEvent2UI>,
-) -> Result<P2pHandle, Box<dyn std::error::Error>> {
+) -> Result<P2pHandle, Box<dyn std::error::Error + Send + Sync>> {
     let keypair = profile.keypair();
     let local_peer_id = profile.peer_id();
 

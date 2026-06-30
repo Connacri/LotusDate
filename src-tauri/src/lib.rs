@@ -7,6 +7,21 @@
 //!   matching.rs — logique de match (likes persistés)
 //!   profile.rs  — profil utilisateur (keypair Ed25519 persistée)
 //!   battery.rs  — niveau de batterie
+//!
+//! CORRECTIF (crash/ANR Android) :
+//! Le démarrage du réseau P2P (DNS + connexions TCP vers les bootstrap nodes)
+//! ne doit JAMAIS être attendu de façon synchrone (`block_on`) dans `setup()`,
+//! car ce callback s'exécute sur le thread principal (UI) de l'Activity Android.
+//! Le bloquer en attendant le réseau déclenche un ANR (Application Not
+//! Responding) et Android tue le process — ce qui se manifeste par l'app qui
+//! se fige sur l'écran de chargement puis disparaît/se ferme toute seule.
+//!
+//! Le réseau est donc maintenant démarré en arrière-plan via
+//! `tauri::async_runtime::spawn` (non bloquant). `setup()` retourne
+//! immédiatement, l'UI s'affiche tout de suite, et le P2pHandle est rangé
+//! dans un `Arc<Mutex<Option<P2pHandle>>>` rempli dès que le réseau est prêt.
+//! Le frontend est notifié via l'événement `network-ready` (ou `network-error`
+//! en cas d'échec — sans paniquer/crasher l'app).
 
 mod battery;
 mod chat;
@@ -22,10 +37,17 @@ use tauri::{Emitter, Manager};
 use tokio::sync::{mpsc, Mutex};
 use serde::Serialize;
 
+// ─── Message d'attente partagé avec le frontend ──────────────────────────────
+// Le frontend (App.tsx) affiche déjà ce message dans son `catch` de
+// `fetchProfiles()` — on réutilise exactement le même texte pour rester
+// cohérent pendant que le réseau s'initialise en arrière-plan.
+const NETWORK_NOT_READY: &str = "Réseau P2P en cours d'initialisation…";
+
 // ─── AppState ─────────────────────────────────────────────────────────────────
 
 struct AppState {
-    handle: P2pHandle,
+    /// `None` tant que `start_network()` n'a pas terminé en arrière-plan.
+    handle: Arc<Mutex<Option<P2pHandle>>>,
     profile: Arc<Mutex<UserProfile>>,
     battery: Arc<Mutex<BatteryMonitor>>,
 }
@@ -48,13 +70,18 @@ struct LikePayload {
     from_peer: String,
 }
 
+#[derive(Clone, Serialize)]
+struct NetworkErrorPayload {
+    message: String,
+}
+
 // ─── Pont événements réseau → Tauri emit ─────────────────────────────────────
 
 fn spawn_event_bridge(
     app_handle: tauri::AppHandle,
     mut event_rx: mpsc::UnboundedReceiver<SwarmEvent2UI>,
 ) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         while let Some(event) = event_rx.recv().await {
             match event {
                 SwarmEvent2UI::ChatMessage { from_peer, content } => {
@@ -72,7 +99,6 @@ fn spawn_event_bridge(
                 SwarmEvent2UI::NewProfile(_) => {
                     let _ = app_handle.emit("profiles-updated", ());
                 }
-                // CORRECTIF 1 : tracing:: maintenant accessible car déclaré dans Cargo.toml
                 SwarmEvent2UI::PeerConnected { peer_id } => {
                     tracing::debug!("Pair connecté : {}", peer_id);
                 }
@@ -84,14 +110,52 @@ fn spawn_event_bridge(
     });
 }
 
+// ─── Démarrage réseau en arrière-plan (NE bloque PAS le thread principal) ────
+
+fn spawn_network_startup(
+    app_handle: tauri::AppHandle,
+    handle_slot: Arc<Mutex<Option<P2pHandle>>>,
+    profile: UserProfile,
+) {
+    tauri::async_runtime::spawn(async move {
+        let (event_tx, event_rx) = mpsc::unbounded_channel::<SwarmEvent2UI>();
+
+        match p2p::start_network(&profile, event_tx).await {
+            Ok(handle) => {
+                // Publie notre profil dès que le réseau est opérationnel
+                let pub_profile = profile.public_version();
+                handle
+                    .cmd_tx
+                    .send(p2p::SwarmCommand::PublishProfile(pub_profile))
+                    .ok();
+
+                spawn_event_bridge(app_handle.clone(), event_rx);
+
+                *handle_slot.lock().await = Some(handle);
+
+                // Notifie le frontend que le réseau est prêt (il peut relancer
+                // get_profiles / get_my_profile sans rester bloqué sur le spinner)
+                let _ = app_handle.emit("network-ready", ());
+                tracing::info!("Réseau P2P démarré avec succès");
+            }
+            Err(e) => {
+                // CORRECTIF : on n'utilise plus `.expect()` ici — une erreur réseau
+                // (DNS indisponible sur Android, pas de connectivité, etc.) ne doit
+                // jamais faire planter tout le process. On informe juste l'UI.
+                tracing::error!("Échec démarrage réseau P2P : {}", e);
+                let _ = app_handle.emit(
+                    "network-error",
+                    NetworkErrorPayload { message: e.to_string() },
+                );
+            }
+        }
+    });
+}
+
 // ─── Point d'entrée Tauri ─────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // CORRECTIF 1 : initialisation du subscriber tracing
-    // - En debug : RUST_LOG=debug active les logs détaillés
-    // - En release Android : niveau warn par défaut (silencieux)
-    // - env-filter permet de filtrer par crate : RUST_LOG=proxidate_live=debug,libp2p=info
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -110,30 +174,23 @@ pub fn run() {
             let profile = UserProfile::load_or_create();
             let battery = BatteryMonitor::new();
 
-            // Canal de remontée d'événements réseau vers l'UI
-            let (event_tx, event_rx) = mpsc::unbounded_channel::<SwarmEvent2UI>();
+            let handle_slot: Arc<Mutex<Option<P2pHandle>>> = Arc::new(Mutex::new(None));
 
-            // Démarre le réseau P2P réel dans un runtime tokio existant
-            let handle = tauri::async_runtime::block_on(async {
-                p2p::start_network(&profile, event_tx)
-                    .await
-                    .expect("Impossible de démarrer le réseau P2P")
-            });
-
-            // Publie notre profil immédiatement au démarrage
-            let pub_profile = profile.public_version();
-            handle.cmd_tx.send(
-                p2p::SwarmCommand::PublishProfile(pub_profile)
-            ).ok();
-
-            let app_handle = app.handle().clone();
-            spawn_event_bridge(app_handle, event_rx);
-
+            // ── État géré IMMÉDIATEMENT, sans attendre le réseau ──────────────
+            // L'UI (WebView) peut donc s'afficher tout de suite ; les commandes
+            // qui ont besoin du réseau renverront une erreur explicite tant que
+            // `handle_slot` est `None`, que le frontend gère déjà gracieusement.
             app.manage(AppState {
-                handle,
-                profile: Arc::new(Mutex::new(profile)),
+                handle: handle_slot.clone(),
+                profile: Arc::new(Mutex::new(profile.clone())),
                 battery: Arc::new(Mutex::new(battery)),
             });
+
+            // ── Démarrage du réseau P2P EN ARRIÈRE-PLAN ───────────────────────
+            // Plus aucun `block_on` ici : c'était la cause du blocage du thread
+            // UI Android (ANR) → crash / fermeture automatique de l'app.
+            let app_handle = app.handle().clone();
+            spawn_network_startup(app_handle, handle_slot, profile);
 
             Ok(())
         })
@@ -156,11 +213,23 @@ mod commands {
     use super::*;
     use tauri::State;
 
+    /// Récupère le handle réseau ou renvoie une erreur explicite (au lieu de
+    /// paniquer / bloquer) tant que `start_network()` n'a pas terminé.
+    async fn require_handle(state: &State<'_, AppState>) -> Result<P2pHandle, String> {
+        state
+            .handle
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| NETWORK_NOT_READY.to_string())
+    }
+
     #[tauri::command]
     pub async fn get_profiles(
         state: State<'_, AppState>,
     ) -> Result<Vec<profile::PublicProfile>, String> {
-        Ok(state.handle.get_discovered_profiles().await)
+        let handle = require_handle(&state).await?;
+        Ok(handle.get_discovered_profiles().await)
     }
 
     #[tauri::command]
@@ -168,7 +237,8 @@ mod commands {
         state: State<'_, AppState>,
         peer_id: String,
     ) -> Result<bool, String> {
-        Ok(state.handle.send_like(&peer_id).await)
+        let handle = require_handle(&state).await?;
+        Ok(handle.send_like(&peer_id).await)
     }
 
     #[tauri::command]
@@ -176,11 +246,12 @@ mod commands {
         state: State<'_, AppState>,
         peer_id: String,
     ) -> Result<(), String> {
+        let handle = require_handle(&state).await?;
         let my_id = {
             let p = state.profile.lock().await;
             p.peer_id().to_string()
         };
-        state.handle.open_chat(&peer_id, &my_id).await;
+        handle.open_chat(&peer_id, &my_id).await;
         Ok(())
     }
 
@@ -190,14 +261,12 @@ mod commands {
         peer_id: String,
         content: String,
     ) -> Result<(), String> {
+        let handle = require_handle(&state).await?;
         let my_id = {
             let p = state.profile.lock().await;
             p.peer_id().to_string()
         };
-        state
-            .handle
-            .send_chat_message(&peer_id, &content, &my_id)
-            .await
+        handle.send_chat_message(&peer_id, &content, &my_id).await
     }
 
     #[tauri::command]
@@ -205,9 +274,13 @@ mod commands {
         state: State<'_, AppState>,
         peer_id: String,
     ) -> Result<(), String> {
-        state.handle.close_chat(&peer_id).await;
+        let handle = require_handle(&state).await?;
+        handle.close_chat(&peer_id).await;
         Ok(())
     }
+
+    // ── Ces deux commandes ne dépendent PAS du réseau : elles restent
+    //    disponibles immédiatement, dès l'affichage de l'UI. ──────────────────
 
     #[tauri::command]
     pub async fn get_battery_status(

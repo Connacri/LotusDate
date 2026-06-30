@@ -6,6 +6,7 @@
 *Zéro serveur. Zéro tiers. Juste le réseau.*
 
 [![Platform](https://img.shields.io/badge/Plateforme-Android-3DDC84?logo=android&logoColor=white)](#-télécharger)
+[![Site web](https://img.shields.io/badge/Site%20web-connacri.github.io-FF4D6D?logo=googlechrome&logoColor=white)](https://connacri.github.io/LotusDate/)
 [![Built with Tauri](https://img.shields.io/badge/Construit%20avec-Tauri%20v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Backend-Rust-DEA584?logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Status](https://img.shields.io/badge/Statut-Alpha%20%2F%20MVP-orange)](#%EF%B8%8F-statut-du-projet)
@@ -16,6 +17,7 @@ aucun compte, aucun serveur, aucune donnée centralisée.
 <br>
 
 [![Télécharger l'APK](https://img.shields.io/badge/⬇️_Télécharger_l'APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Connacri/LotusDate/releases/latest/download/LotusDate.apk)
+[![Voir le site](https://img.shields.io/badge/🌐_Voir_le_site-FF4D6D?style=for-the-badge&logoColor=white)](https://connacri.github.io/LotusDate/)
 
 [Voir toutes les versions →](https://github.com/Connacri/LotusDate/releases)
 

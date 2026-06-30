@@ -65,7 +65,10 @@ body {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  padding: 12px 12px env(safe-area-inset-bottom, 12px);
+  padding: max(12px, env(safe-area-inset-top, 12px))
+           max(12px, env(safe-area-inset-right, 12px))
+           max(12px, env(safe-area-inset-bottom, 12px))
+           max(12px, env(safe-area-inset-left, 12px));
 }
 
 /* ── Spinner ────────────────────────────────────────────────── */
@@ -83,7 +86,7 @@ body {
 /* ── Match Toast ────────────────────────────────────────────── */
 .match-toast {
   position: fixed;
-  top: 16px;
+  top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px));
   left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(135deg, var(--primary), var(--primary-light));
@@ -108,7 +111,7 @@ body {
 /* UX FIX: bannière d'erreur réseau */
 .error-banner {
   position: fixed;
-  top: 16px;
+  top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px));
   left: 50%;
   transform: translateX(-50%);
   background: #fef2f2;

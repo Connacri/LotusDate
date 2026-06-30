@@ -82,6 +82,6 @@ production. Les retours, tests et contributions sont les bienvenus via les
 
 <div align="center">
 
-*Construit avec 🌸 par [Jocker](https://github.com/Connacri)*
+*Construit avec 🌸 par [Connacri](https://github.com/Connacri)*
 
 </div>

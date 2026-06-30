@@ -135,10 +135,10 @@ jobs:
           alias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
-          buildToolsVersion: '34.0.0'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+          BUILD_TOOLS_VERSION: '34.0.0'
 
       # ── 13. Créer le tag Git ──────────────────────────────────
       - name: 🏷️ Créer le tag

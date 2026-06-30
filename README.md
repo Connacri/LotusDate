@@ -5,6 +5,12 @@
 
 Ton téléphone devient un nœud dans un réseau mondial auto-organisé.
 
+## 📥 Télécharger
+
+[![Télécharger l'APK](https://img.shields.io/badge/Android-T%C3%A9l%C3%A9charger%20l'APK-3DDC84?logo=android&logoColor=white)](https://github.com/Connacri/LotusDate/releases/latest/download/LotusDate.apk)
+
+➡️ [Toutes les versions](https://github.com/Connacri/LotusDate/releases)
+
 ## ✨ Pourquoi LotusDate ?
 
 - 🔐 **Confidentialité absolue** — Clé Ed25519 locale, aucun compte ni donnée centrale

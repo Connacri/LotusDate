@@ -18,9 +18,16 @@ serde          = { version = "1.0", features = ["derive"] }
 serde_json     = "1.0"
 tokio          = { version = "1.36", features = ["full"] }
 
+# ── Logging / tracing ─────────────────────────────────────────────────────────
+# CORRECTIF 1 : tracing doit être déclaré explicitement même si libp2p le tire
+# transitivement. Sans cette ligne, tracing:: n'est pas dans le scope du crate root.
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# ── Réseau P2P ────────────────────────────────────────────────────────────────
 # libp2p 0.54 — API stable avec SwarmBuilder fluent
 # gossipsub : messagerie pub/sub P2P
-# request-response : like bidirectionnel + échange de profil
+# request-response : échange bidirectionnel
 # identify : annonce de l'adresse aux pairs
 libp2p = { version = "0.54", features = [
     "tokio",
@@ -38,15 +45,23 @@ libp2p = { version = "0.54", features = [
     "dcutr",
 ] }
 
-# Chiffrement E2EE — nonce aléatoire
-sodiumoxide = "0.2.7"
-zeroize     = { version = "1.7", features = ["derive"] }
-rand        = "0.8"
-uuid        = { version = "1.6", features = ["v4"] }
-thiserror   = "1.0"
+# ── Chiffrement E2EE — CORRECTIF 2 ───────────────────────────────────────────
+# sodiumoxide 0.2.7 dépend de libsodium-sys (bibliothèque C) qui nécessite
+# pkg-config + libsodium installée sur le système. Sur le NDK Android (aarch64),
+# cette bibliothèque C n'est pas disponible → erreur de compilation.
+#
+# Remplacement : chacha20poly1305 (crate RustCrypto, 100% pure Rust)
+# XChaCha20-Poly1305 — même algorithme, même sécurité, zéro dépendance C.
+chacha20poly1305 = { version = "0.10", features = ["std"] }
+
+# ── Utilitaires ───────────────────────────────────────────────────────────────
+zeroize   = { version = "1.7", features = ["derive"] }
+rand      = "0.8"
+uuid      = { version = "1.6", features = ["v4"] }
+thiserror = "1.0"
 
 # Sérialisation des messages réseau
-bincode = "1.3"
+bincode  = "1.3"
 dirs-next = "2.0"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]

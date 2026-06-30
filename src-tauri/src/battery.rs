@@ -1,45 +1,39 @@
-use battery::{Manager, State};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-
+#[cfg(not(target_os = "android"))]
 pub struct BatteryMonitor {
-    manager: Manager,
+    manager: battery::Manager,
 }
+
+#[cfg(target_os = "android")]
+pub struct BatteryMonitor;
 
 impl BatteryMonitor {
     pub fn new() -> Self {
-        Self {
-            manager: Manager::new().unwrap(),
+        #[cfg(not(target_os = "android"))]
+        {
+            BatteryMonitor {
+                manager: battery::Manager::new().unwrap(),
+            }
+        }
+        #[cfg(target_os = "android")]
+        {
+            BatteryMonitor
         }
     }
 
     pub fn level(&self) -> f32 {
-        let mut total = 0.0;
-        let mut count = 0;
-        for b in self.manager.batteries().unwrap() {
-            let bat = b.unwrap();
-            total += bat.state_of_charge() as f32;
-            count += 1;
-        }
-        if count > 0 {
-            total / count as f32
-        } else {
-            1.0 // assume full if no battery found (desktop)
-        }
-    }
-
-    pub fn should_be_full_node(&self) -> bool {
-        // Node complet seulement si > 30% ou en charge
-        let level = self.level();
-        if level > 0.3 {
-            return true;
-        }
-        for b in self.manager.batteries().unwrap() {
-            let bat = b.unwrap();
-            if bat.state() == State::Charging || bat.state() == State::Full {
-                return true;
+        #[cfg(not(target_os = "android"))]
+        {
+            if let Ok(mut batteries) = self.manager.batteries() {
+                if let Some(Ok(bat)) = batteries.next() {
+                    use battery::units::ratio::percent;
+                    return bat.state_of_charge().get::<percent>() / 100.0;
+                }
             }
+            1.0
         }
-        false
+        #[cfg(target_os = "android")]
+        {
+            1.0
+        }
     }
 }

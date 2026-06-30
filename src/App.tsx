@@ -12,7 +12,6 @@ interface PublicProfile {
   geohash: string;
 }
 
-// UX FIX: on garde le pseudonyme du match pour l'afficher dans la notif
 interface MatchNotif {
   peerId: string;
   pseudonym: string;
@@ -25,7 +24,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [likingPeer, setLikingPeer] = useState<string | null>(null);
   const [matchNotif, setMatchNotif] = useState<MatchNotif | null>(null);
-  // UX FIX: message d'erreur global (réseau, invoke échoué)
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchProfiles = useCallback(async () => {
@@ -34,7 +32,6 @@ function App() {
       setProfiles(prev =>
         JSON.stringify(prev) === JSON.stringify(p) ? prev : p
       );
-      // UX FIX: effacer l'erreur dès qu'on récupère des données
       setErrorMsg(null);
     } catch (e) {
       console.error('Failed to fetch profiles', e);
@@ -44,10 +41,19 @@ function App() {
     }
   }, []);
 
+  // ✅ CORRIGÉ : Web Battery API sur Android, invoke sur desktop
   const fetchBattery = useCallback(async () => {
     try {
-      const level = await invoke<number>('get_battery_status');
-      setBattery(prev => (prev === level ? prev : level));
+      const nav = navigator as any;
+      if (nav.getBattery) {
+        const bat = await nav.getBattery();
+        setBattery((prev) => prev === bat.level ? prev : bat.level);
+        // Écouter les changements en temps réel
+        bat.onlevelchange = () => setBattery(bat.level);
+      } else {
+        const level = await invoke<number>('get_battery_status');
+        setBattery(prev => prev === level ? prev : level);
+      }
     } catch (e) {
       console.error('Failed to fetch battery status', e);
     }
@@ -58,7 +64,8 @@ function App() {
     fetchBattery();
 
     const profileInterval = setInterval(fetchProfiles, 5000);
-    const batteryInterval = setInterval(fetchBattery, 15000);
+    // Sur Android bat.onlevelchange gère les mises à jour, pas besoin d'interval fréquent
+    const batteryInterval = setInterval(fetchBattery, 60000);
 
     return () => {
       clearInterval(profileInterval);
@@ -72,7 +79,6 @@ function App() {
     try {
       const matched = await invoke<boolean>('send_like', { peerId });
       if (matched) {
-        // UX FIX: notif avec le vrai pseudonyme
         setMatchNotif({ peerId, pseudonym });
         await invoke('open_chat', { peerId });
         setTimeout(() => {
@@ -103,14 +109,12 @@ function App() {
 
   return (
     <div className="app">
-      {/* Notification de match */}
       {matchNotif && (
         <div className="match-toast" role="alert" aria-live="assertive">
           💞 Match avec {matchNotif.pseudonym} ! Connexion…
         </div>
       )}
 
-      {/* Bannière d'erreur réseau */}
       {errorMsg && !matchNotif && (
         <div className="error-banner" role="alert">
           ⚠️ {errorMsg}

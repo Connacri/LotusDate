@@ -140,7 +140,13 @@ jobs:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
           BUILD_TOOLS_VERSION: '34.0.0'
 
-      # ── 13. Créer le tag Git ──────────────────────────────────
+      # ── 13. Renommer l'APK signé (nom stable pour le lien README) ─
+      - name: 📦 Renommer l'APK signé
+        run: |
+          cp "${{ steps.sign.outputs.signedReleaseFile }}" LotusDate.apk
+          ls -la LotusDate.apk
+
+      # ── 14. Créer le tag Git ──────────────────────────────────
       - name: 🏷️ Créer le tag
         run: |
           git config user.name  "github-actions[bot]"
@@ -148,7 +154,7 @@ jobs:
           git tag "${{ env.VERSION }}" -m "Release ${{ env.VERSION }}"
           git push origin "${{ env.VERSION }}"
 
-      # ── 14. GitHub Release ────────────────────────────────────
+      # ── 15. GitHub Release ────────────────────────────────────
       - name: 🚀 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -158,7 +164,5 @@ jobs:
             ## LotusDate ${{ env.VERSION }}
             Build Android automatique via GitHub Actions.
             **Bump**: ${{ github.event.inputs.version_bump || 'patch' }}
-          files: |
-            src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
-            ${{ steps.sign.outputs.signedReleaseFile }}
+          files: LotusDate.apk
           fail_on_unmatched_files: false

@@ -116,11 +116,12 @@ fn spawn_network_startup(
     app_handle: tauri::AppHandle,
     handle_slot: Arc<Mutex<Option<P2pHandle>>>,
     profile: UserProfile,
+    data_dir: std::path::PathBuf,
 ) {
     tauri::async_runtime::spawn(async move {
         let (event_tx, event_rx) = mpsc::unbounded_channel::<SwarmEvent2UI>();
 
-        match p2p::start_network(&profile, event_tx).await {
+        match p2p::start_network(&profile, event_tx, &data_dir).await {
             Ok(handle) => {
                 // Publie notre profil dès que le réseau est opérationnel
                 let pub_profile = profile.public_version();
@@ -171,8 +172,27 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            let profile = UserProfile::load_or_create();
-            let battery = BatteryMonitor::new();
+                    // CORRECTIF : on résout le VRAI répertoire app-data fourni par l'OS
+                    // via Tauri (sandbox-safe sur Android), au lieu de dirs_next qui
+                    // pouvait échouer silencieusement ou pointer vers un chemin non
+                    // accessible en écriture — ce qui régénérait keypair + PeerId à
+                    // chaque lancement et empêchait toute persistance des matchs.
+                    let data_dir = app
+                        .path()
+                        .app_data_dir()
+                        .unwrap_or_else(|e| {
+                            tracing::warn!(
+                                "app_data_dir() indisponible ({}), repli sur le \
+                                 répertoire courant — la persistance ne survivra pas \
+                                 forcément aux redémarrages.",
+                                e
+                            );
+                            std::path::PathBuf::from(".")
+                        });
+                    std::fs::create_dir_all(&data_dir).ok();
+
+                    let profile = UserProfile::load_or_create(&data_dir);
+                    let battery = BatteryMonitor::new();
 
             let handle_slot: Arc<Mutex<Option<P2pHandle>>> = Arc::new(Mutex::new(None));
 
@@ -190,7 +210,7 @@ pub fn run() {
             // Plus aucun `block_on` ici : c'était la cause du blocage du thread
             // UI Android (ANR) → crash / fermeture automatique de l'app.
             let app_handle = app.handle().clone();
-            spawn_network_startup(app_handle, handle_slot, profile);
+            spawn_network_startup(app_handle, handle_slot, profile, data_dir);
 
             Ok(())
         })

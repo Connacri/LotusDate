@@ -15,18 +15,19 @@ pub struct UserProfile {
 }
 
 impl UserProfile {
-    fn profile_path() -> PathBuf {
-        // Tauri stocke les données dans le répertoire app_data de l'OS
-        let mut p = dirs_next::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."));
-        p.push("proxidate-live");
-        std::fs::create_dir_all(&p).ok();
-        p.push("profile.json");
-        p
+    fn profile_path(data_dir: &std::path::Path) -> PathBuf {
+        std::fs::create_dir_all(data_dir).ok();
+        data_dir.join("profile.json")
     }
 
-    pub fn load_or_create() -> Self {
-        let path = Self::profile_path();
+    /// `data_dir` doit être un répertoire garanti accessible en écriture par l'app
+    /// (fourni par Tauri via `app.path().app_data_dir()`). Sur Android, l'ancien
+    /// `dirs_next::data_local_dir()` peut échouer silencieusement ou pointer vers
+    /// un chemin non accessible en écriture par le sandbox de l'app, ce qui
+    /// régénérait une nouvelle keypair (donc un nouveau PeerId) à CHAQUE lancement
+    /// — cassant les matchs et la persistance entre sessions.
+    pub fn load_or_create(data_dir: &std::path::Path) -> Self {
+        let path = Self::profile_path(data_dir);
         if path.exists() {
             if let Ok(bytes) = std::fs::read(&path) {
                 if let Ok(p) = serde_json::from_slice::<UserProfile>(&bytes) {
@@ -45,7 +46,13 @@ impl UserProfile {
             geohash: "u09tun".into(),
         };
         if let Ok(bytes) = serde_json::to_vec_pretty(&profile) {
-            std::fs::write(&path, bytes).ok();
+            if let Err(e) = std::fs::write(&path, bytes) {
+                tracing::warn!(
+                    "Impossible de persister le profil ({:?}) : {} — un nouveau \
+                     profil sera régénéré au prochain lancement.",
+                    path, e
+                );
+            }
         }
         profile
     }

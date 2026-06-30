@@ -19,29 +19,30 @@ pub struct MatchState {
     pub likes_received: HashSet<String>,
     /// Matchs confirmés (les deux côtés ont liké)
     pub matches: HashSet<String>,
+    /// Répertoire app-data Tauri où sont persistés les likes envoyés
+    data_dir: PathBuf,
 }
 
 impl MatchState {
-    pub fn new() -> Self {
-        let likes_sent = Self::load_sent_likes();
+    /// `data_dir` doit être le répertoire app-data fourni par Tauri (voir
+    /// `profile.rs::load_or_create` pour le détail du bug corrigé).
+    pub fn new(data_dir: &std::path::Path) -> Self {
+        let likes_sent = Self::load_sent_likes(data_dir);
         Self {
             likes_sent,
             likes_received: HashSet::new(),
             matches: HashSet::new(),
+            data_dir: data_dir.to_path_buf(),
         }
     }
 
-    fn likes_path() -> PathBuf {
-        let mut p = dirs_next::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."));
-        p.push("proxidate-live");
-        std::fs::create_dir_all(&p).ok();
-        p.push("likes.json");
-        p
+    fn likes_path(data_dir: &std::path::Path) -> PathBuf {
+        std::fs::create_dir_all(data_dir).ok();
+        data_dir.join("likes.json")
     }
 
-    fn load_sent_likes() -> HashSet<String> {
-        let path = Self::likes_path();
+    fn load_sent_likes(data_dir: &std::path::Path) -> HashSet<String> {
+        let path = Self::likes_path(data_dir);
         if path.exists() {
             if let Ok(bytes) = std::fs::read(&path) {
                 if let Ok(data) = serde_json::from_slice::<PersistentLikes>(&bytes) {
@@ -57,7 +58,7 @@ impl MatchState {
             sent: self.likes_sent.clone(),
         };
         if let Ok(bytes) = serde_json::to_vec_pretty(&data) {
-            std::fs::write(Self::likes_path(), bytes).ok();
+            std::fs::write(Self::likes_path(&self.data_dir), bytes).ok();
         }
     }
 

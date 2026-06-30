@@ -203,6 +203,7 @@ fn derive_session_secret(peer_a: &str, peer_b: &str) -> [u8; 32] {
 pub async fn start_network(
     profile: &UserProfile,
     event_tx: mpsc::UnboundedSender<SwarmEvent2UI>,
+    data_dir: &std::path::Path,
 ) -> Result<P2pHandle, Box<dyn std::error::Error + Send + Sync>> {
     let keypair = profile.keypair();
     let local_peer_id = profile.peer_id();
@@ -220,10 +221,19 @@ pub async fn start_network(
         gossipsub_config,
     )?;
 
-    // ── Kademlia ──────────────────────────────────────────────────────────────
+// ── Kademlia ──────────────────────────────────────────────────────────────
     let store = MemoryStore::new(local_peer_id);
     let kad_config = kad::Config::new(StreamProtocol::new("/lotus/kad/1.0.0"));
-    let kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
+    let mut kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
+    // CORRECTIF : sans ceci, Kademlia reste en mode Client par défaut tant
+    // qu'aucune adresse externe n'a été confirmée (via AutoNat, non câblé ici).
+    // En mode Client, ce nœud ne répond JAMAIS aux requêtes des autres pairs et
+    // n'est jamais ajouté à leur table de routage → sur mobile (NAT/4G), deux
+    // téléphones ne se découvrent quasiment jamais. Mode::Server force ce nœud
+    // à participer activement au DHT (répondre aux FIND_NODE, stocker des
+    // enregistrements), ce qui est indispensable ici puisque chaque pair EST
+    // potentiellement le seul "serveur" disponible pour l'autre.
+    kademlia.set_mode(Some(kad::Mode::Server));
 
     // ── Identify ──────────────────────────────────────────────────────────────
     let identify = identify::Behaviour::new(identify::Config::new(
@@ -277,7 +287,7 @@ pub async fn start_network(
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<SwarmCommand>();
 
     let discovered = Arc::new(Mutex::new(HashMap::<String, PublicProfile>::new()));
-    let match_state = Arc::new(Mutex::new(MatchState::new()));
+    let match_state = Arc::new(Mutex::new(MatchState::new(data_dir)));
     let chats = Arc::new(Mutex::new(HashMap::<String, EphemeralChat>::new()));
 
     let discovered_clone = Arc::clone(&discovered);

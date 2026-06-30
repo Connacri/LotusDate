@@ -58,7 +58,6 @@ thiserror = "1.0"
 
 # Sérialisation des messages réseau
 bincode  = "1.3"
-dirs-next = "2.0"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 battery = "0.7"

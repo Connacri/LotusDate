@@ -5,6 +5,11 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
 
+  // Chemin de base pour GitHub Pages : le site vit sous
+  // connacri.github.io/LotusDate/ et non à la racine du domaine.
+  // En mode "tauri" (app Android/desktop), on reste en "/".
+  base: process.env.TAURI_ENV_PLATFORM ? "/" : "/LotusDate/",
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent vite from obscuring rust errors

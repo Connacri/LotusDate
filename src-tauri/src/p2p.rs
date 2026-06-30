@@ -1,4 +1,4 @@
-//! Couche réseau P2P réelle — libp2p 0.54
+//! Couche réseau P2P réelle — libp2p 0.56
 //!
 //! Architecture :
 //!   ┌─────────────────────────────────────────────────────────┐
@@ -91,7 +91,7 @@ pub enum SwarmEvent2UI {
     PeerDisconnected { peer_id: String },
 }
 
-// ─── Behaviour combiné libp2p 0.54 (API SwarmBuilder fluent) ─────────────────
+// ─── Behaviour combiné libp2p 0.56 (API SwarmBuilder fluent) ─────────────────
 
 #[derive(NetworkBehaviour)]
 pub struct LotusBehaviour {
@@ -136,7 +136,8 @@ impl P2pHandle {
         plaintext: &str,
         my_peer_id: &str,
     ) -> Result<(), String> {
-        let mut chats = self.chats.lock().await;
+        // FIX: suppression de `mut` inutile — `get()` ne nécessite pas &mut
+        let chats = self.chats.lock().await;
         let session = chats
             .get(to_peer)
             .ok_or_else(|| format!("Pas de session de chat active avec {}", to_peer))?;
@@ -230,7 +231,7 @@ pub async fn start_network(
         keypair.public(),
     ));
 
-    // ── SwarmBuilder (API 0.54 fluent) ────────────────────────────────────────
+    // ── SwarmBuilder (API 0.56 fluent) ────────────────────────────────────────
     let behaviour = LotusBehaviour {
         gossipsub,
         kademlia,

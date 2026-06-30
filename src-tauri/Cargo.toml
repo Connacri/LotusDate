@@ -19,17 +19,15 @@ serde_json     = "1.0"
 tokio          = { version = "1.36", features = ["full"] }
 
 # ── Logging / tracing ─────────────────────────────────────────────────────────
-# CORRECTIF 1 : tracing doit être déclaré explicitement même si libp2p le tire
-# transitivement. Sans cette ligne, tracing:: n'est pas dans le scope du crate root.
 tracing            = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # ── Réseau P2P ────────────────────────────────────────────────────────────────
-# libp2p 0.54 — API stable avec SwarmBuilder fluent
+# libp2p 0.56 — API stable avec SwarmBuilder fluent
 # gossipsub : messagerie pub/sub P2P
 # request-response : échange bidirectionnel
 # identify : annonce de l'adresse aux pairs
-libp2p = { version = "0.54", features = [
+libp2p = { version = "0.56", features = [
     "tokio",
     "kad",
     "gossipsub",
@@ -45,13 +43,11 @@ libp2p = { version = "0.54", features = [
     "dcutr",
 ] }
 
-# ── Chiffrement E2EE — CORRECTIF 2 ───────────────────────────────────────────
-# sodiumoxide 0.2.7 dépend de libsodium-sys (bibliothèque C) qui nécessite
-# pkg-config + libsodium installée sur le système. Sur le NDK Android (aarch64),
-# cette bibliothèque C n'est pas disponible → erreur de compilation.
-#
-# Remplacement : chacha20poly1305 (crate RustCrypto, 100% pure Rust)
-# XChaCha20-Poly1305 — même algorithme, même sécurité, zéro dépendance C.
+# ── Chiffrement E2EE — pure Rust ─────────────────────────────────────────────
+# chacha20poly1305 (RustCrypto) remplace sodiumoxide :
+# - même algorithme XChaCha20-Poly1305
+# - zéro dépendance C → compilation Android sans NDK compliqué
+# - maintenance active, audité par la communauté Rust
 chacha20poly1305 = { version = "0.10", features = ["std"] }
 
 # ── Utilitaires ───────────────────────────────────────────────────────────────
